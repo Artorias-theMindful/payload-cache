@@ -123,3 +123,10 @@ def test_lone_surrogate_rejected(client):
         headers={"content-type": "application/json"},
     )
     assert response.status_code == 422
+
+
+def test_more_strings_than_bind_parameters(client):
+    # A single statement can carry at most 65535 bind parameters
+    strings = [str(i) for i in range(70_000)]
+    response = post(client, strings, strings)
+    assert response.status_code == 200

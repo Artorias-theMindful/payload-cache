@@ -3,8 +3,8 @@ from collections.abc import Iterator
 from hashlib import sha256
 from uuid import UUID
 
-from sqlalchemy import Engine, create_engine, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import Engine, String, any_, create_engine, literal, select
+from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session
 
 from app.models import Base, Payload, TransformCache
@@ -36,9 +36,12 @@ def _key(string: str) -> str:
 
 
 def get_cached(session: Session, strings: list[str]) -> dict[str, str]:
+    # One array parameter: IN (...) binds one per string and a statement
+    # is limited to 65535 of them
+    keys = literal([_key(s) for s in strings], ARRAY(String))
     rows = session.execute(
         select(TransformCache.input, TransformCache.output).where(
-            TransformCache.key.in_([_key(s) for s in strings])
+            TransformCache.key == any_(keys)
         )
     ).all()
     # Keyed on the stored input, so a hash collision is a miss, not a wrong hit
