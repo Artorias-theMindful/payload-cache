@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from hashlib import sha256
 from uuid import UUID
 
-from sqlalchemy import Engine, String, any_, create_engine, literal, select
+from sqlalchemy import Engine, String, any_, create_engine, func, literal, select
 from sqlalchemy.dialects.postgresql import ARRAY, insert
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,11 @@ from app.models import Base, Payload, TransformCache
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5433/payloads"
 )
+
+# Advisory lock ids are global to the database; the namespace keeps these
+# apart from any other use of advisory locks
+LOCK_NAMESPACE = 0x7C4E
+LOCK_STRIPES = 64
 
 engine: Engine
 
@@ -33,6 +38,20 @@ def get_session() -> Iterator[Session]:
 
 def _key(string: str) -> str:
     return sha256(string.encode()).hexdigest()
+
+
+def lock_strings(session: Session, strings: list[str]):
+    """Block until no other transaction is transforming any of these strings.
+
+    The locks are released when the transaction ends, so the caller keeps
+    them until its results are committed.
+    """
+    # Striped: one lock per string would exhaust the lock table on a large
+    # request. The price is that unrelated strings sometimes share a lock.
+    stripes = {int(_key(s)[:8], 16) % LOCK_STRIPES for s in strings}
+    # Ascending order, so two requests cannot wait on each other in a cycle
+    for stripe in sorted(stripes):
+        session.execute(select(func.pg_advisory_xact_lock(LOCK_NAMESPACE, stripe)))
 
 
 def get_cached(session: Session, strings: list[str]) -> dict[str, str]:

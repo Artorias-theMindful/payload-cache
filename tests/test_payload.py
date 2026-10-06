@@ -1,11 +1,14 @@
 import random
 import string
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from app import db, transformer
+from app import db, service, transformer
 from app.main import app
 
 
@@ -130,3 +133,24 @@ def test_more_strings_than_bind_parameters(client):
     strings = [str(i) for i in range(70_000)]
     response = post(client, strings, strings)
     assert response.status_code == 200
+
+
+def test_concurrent_requests_transform_each_string_once(client, monkeypatch):
+    seen = []
+
+    def slow(s):
+        seen.append(s)
+        time.sleep(0.1)  # keep one request in flight while the other arrives
+        return s.upper()
+
+    monkeypatch.setattr(transformer, "transform", slow)
+
+    def create(_):
+        with Session(db.engine) as session:
+            return service.create_payload(session, ["a", "b"], ["c", "d"])
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first, second = pool.map(create, range(2))
+
+    assert sorted(seen) == ["a", "b", "c", "d"]
+    assert first == second

@@ -8,10 +8,20 @@ from app import db, transformer
 def transform_all(session: Session, strings: list[str]) -> dict[str, str]:
     distinct = list(dict.fromkeys(strings))
     transformed = db.get_cached(session, distinct)
-    missing = {s: transformer.transform(s) for s in distinct if s not in transformed}
-    if missing:
-        db.store_cached(session, missing)
-    return transformed | missing
+    missing = [s for s in distinct if s not in transformed]
+    if not missing:
+        return transformed
+
+    # A concurrent request may be transforming the same strings. Wait for it,
+    # then look again: under READ COMMITTED this read sees what it committed.
+    # The locks are held until the caller commits, which means this request
+    # keeps its database connection while the transformer runs.
+    db.lock_strings(session, missing)
+    transformed |= db.get_cached(session, missing)
+    new = {s: transformer.transform(s) for s in missing if s not in transformed}
+    if new:
+        db.store_cached(session, new)
+    return transformed | new
 
 
 def interleave(list_1: list[str], list_2: list[str], transformed: dict[str, str]) -> str:
