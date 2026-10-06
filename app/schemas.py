@@ -3,6 +3,14 @@ from uuid import UUID
 from pydantic import BaseModel, model_validator
 
 
+def _is_utf8(string: str) -> bool:
+    try:
+        string.encode()
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 class PayloadRequest(BaseModel):
     list_1: list[str]
     list_2: list[str]
@@ -14,6 +22,9 @@ class PayloadRequest(BaseModel):
         # PostgreSQL text cannot store NUL characters
         if any("\x00" in s for s in self.list_1 + self.list_2):
             raise ValueError("strings must not contain NUL characters")
+        # JSON allows lone surrogates ("\ud800"), UTF-8 storage does not
+        if not all(s.isascii() or _is_utf8(s) for s in self.list_1 + self.list_2):
+            raise ValueError("strings must be valid Unicode text")
         return self
 
 

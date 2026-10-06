@@ -113,3 +113,13 @@ def test_long_strings_are_cached(client, calls):
     calls.clear()
     post(client, [long], ["b"])
     assert calls == []
+
+
+def test_lone_surrogate_rejected(client):
+    # Valid JSON, but not encodable as UTF-8, so it cannot be stored
+    response = client.post(
+        "/payload",
+        content=b'{"list_1": ["\\ud800"], "list_2": ["b"]}',
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 422
