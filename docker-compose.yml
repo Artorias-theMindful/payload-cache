@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/payloads
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payloads
+    ports:
+      - "5433:5432"
+    volumes:
+      - payloads_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payloads"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+volumes:
+  payloads_pgdata:
