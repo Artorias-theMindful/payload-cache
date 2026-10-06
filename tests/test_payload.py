@@ -2,9 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-import db
-import transformer
-from main import app
+from app import db, transformer
+from app.main import app
 
 
 @pytest.fixture
