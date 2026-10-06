@@ -1,3 +1,6 @@
+import random
+import string
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -95,3 +98,18 @@ def test_unequal_lengths_rejected(client):
 def test_unknown_id_returns_404(client):
     assert client.get("/payload/00000000-0000-0000-0000-000000000000").status_code == 404
     assert client.get("/payload/not-a-uuid").status_code == 404
+
+
+def test_long_strings_are_cached(client, calls):
+    # Longer than a PostgreSQL B-tree index entry can hold, and incompressible
+    long = "".join(random.Random(0).choices(string.ascii_lowercase, k=20_000))
+
+    response = post(client, [long], ["b"])
+    assert response.status_code == 200
+    assert client.get(f"/payload/{response.json()['id']}").json() == {
+        "output": f"{long.upper()}, B"
+    }
+
+    calls.clear()
+    post(client, [long], ["b"])
+    assert calls == []

@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from hashlib import sha256
 from uuid import UUID
 
 from sqlalchemy import Engine, create_engine, select
@@ -30,12 +31,17 @@ def get_session() -> Iterator[Session]:
         yield session
 
 
+def _key(string: str) -> str:
+    return sha256(string.encode()).hexdigest()
+
+
 def get_cached(session: Session, strings: list[str]) -> dict[str, str]:
     rows = session.execute(
         select(TransformCache.input, TransformCache.output).where(
-            TransformCache.input.in_(strings)
+            TransformCache.key.in_([_key(s) for s in strings])
         )
     ).all()
+    # Keyed on the stored input, so a hash collision is a miss, not a wrong hit
     return {row.input: row.output for row in rows}
 
 
@@ -43,7 +49,7 @@ def store_cached(session: Session, transformed: dict[str, str]):
     # A concurrent request may have cached the same string already
     session.execute(
         insert(TransformCache).on_conflict_do_nothing(),
-        [{"input": k, "output": v} for k, v in transformed.items()],
+        [{"key": _key(k), "input": k, "output": v} for k, v in transformed.items()],
     )
 
 

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import Text
+from sqlalchemy import String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -11,7 +11,9 @@ class Base(DeclarativeBase):
 class TransformCache(Base):
     __tablename__ = "transform_cache"
 
-    input: Mapped[str] = mapped_column(Text, primary_key=True)
+    # SHA-256 of the input: a B-tree index cannot hold arbitrarily long strings
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    input: Mapped[str] = mapped_column(Text)
     output: Mapped[str] = mapped_column(Text)
 
 
