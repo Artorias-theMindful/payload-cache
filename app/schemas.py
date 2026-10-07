@@ -29,6 +29,7 @@ class PayloadRequest(BaseModel):
 
 
 class PayloadCreated(BaseModel):
+    message: str = "Payload created"
     id: UUID
 
 

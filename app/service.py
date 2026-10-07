@@ -32,11 +32,11 @@ def create_payload(session: Session, list_1: list[str], list_2: list[str]) -> UU
     transformed = transform_all(session, list_1 + list_2)
     output = interleave(list_1, list_2, transformed)
     # Deriving the id from the output makes a repeated payload reuse its id
-    id = uuid5(NAMESPACE_OID, output)
-    db.save_payload(session, id, output)
+    payload_id = uuid5(NAMESPACE_OID, output)
+    db.save_payload(session, payload_id, output)
     session.commit()
-    return id
+    return payload_id
 
 
-def get_payload(session: Session, id: UUID) -> str | None:
-    return db.load_payload(session, id)
+def get_payload(session: Session, payload_id: UUID) -> str | None:
+    return db.load_payload(session, payload_id)

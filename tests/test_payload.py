@@ -33,6 +33,7 @@ def test_interleaves_transformed_strings(client):
         ["other string", "another string", "last string"],
     )
     assert response.status_code == 200
+    assert response.json()["message"] == "Payload created"
 
     response = client.get(f"/payload/{response.json()['id']}")
     assert response.status_code == 200
@@ -69,10 +70,10 @@ def test_overlapping_payload_transforms_only_new_strings(client, calls):
 
 
 def test_get_does_not_call_transformer(client, calls):
-    id = post(client, ["a"], ["b"]).json()["id"]
+    payload_id = post(client, ["a"], ["b"]).json()["id"]
     calls.clear()
 
-    assert client.get(f"/payload/{id}").json() == {"output": "A, B"}
+    assert client.get(f"/payload/{payload_id}").json() == {"output": "A, B"}
     assert calls == []
 
 

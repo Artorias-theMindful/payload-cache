@@ -75,12 +75,12 @@ def store_cached(session: Session, transformed: dict[str, str]):
     )
 
 
-def save_payload(session: Session, id: UUID, output: str):
+def save_payload(session: Session, payload_id: UUID, output: str):
     # The id is derived from the output, so a repeat is the same row
     session.execute(
-        insert(Payload).values(id=id, output=output).on_conflict_do_nothing()
+        insert(Payload).values(id=payload_id, output=output).on_conflict_do_nothing()
     )
 
 
-def load_payload(session: Session, id: UUID) -> str | None:
-    return session.scalar(select(Payload.output).where(Payload.id == id))
+def load_payload(session: Session, payload_id: UUID) -> str | None:
+    return session.scalar(select(Payload.output).where(Payload.id == payload_id))
