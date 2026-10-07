@@ -25,7 +25,7 @@ def transform_all(session: Session, strings: list[str]) -> dict[str, str]:
 
 
 def interleave(list_1: list[str], list_2: list[str], transformed: dict[str, str]) -> str:
-    return ", ".join(transformed[s] for pair in zip(list_1, list_2) for s in pair)
+    return ", ".join(transformed[s] for pair in zip(list_1, list_2, strict=True) for s in pair)
 
 
 def create_payload(session: Session, list_1: list[str], list_2: list[str]) -> UUID:

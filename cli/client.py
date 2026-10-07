@@ -11,8 +11,7 @@ def _check(response: httpx.Response):
     if response.is_error:
         request = response.request
         raise ServiceError(
-            f"{request.method} {request.url.path} returned "
-            f"{response.status_code}: {response.text}"
+            f"{request.method} {request.url.path} returned {response.status_code}: {response.text}"
         )
 
 

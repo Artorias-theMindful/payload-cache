@@ -59,9 +59,7 @@ def get_cached(session: Session, strings: list[str]) -> dict[str, str]:
     # is limited to 65535 of them
     keys = literal([_key(s) for s in strings], ARRAY(String))
     rows = session.execute(
-        select(TransformCache.input, TransformCache.output).where(
-            TransformCache.key == any_(keys)
-        )
+        select(TransformCache.input, TransformCache.output).where(TransformCache.key == any_(keys))
     ).all()
     # Keyed on the stored input, so a hash collision is a miss, not a wrong hit
     return {row.input: row.output for row in rows}
@@ -77,9 +75,7 @@ def store_cached(session: Session, transformed: dict[str, str]):
 
 def save_payload(session: Session, payload_id: UUID, output: str):
     # The id is derived from the output, so a repeat is the same row
-    session.execute(
-        insert(Payload).values(id=payload_id, output=output).on_conflict_do_nothing()
-    )
+    session.execute(insert(Payload).values(id=payload_id, output=output).on_conflict_do_nothing())
 
 
 def load_payload(session: Session, payload_id: UUID) -> str | None:

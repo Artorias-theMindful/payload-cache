@@ -18,7 +18,9 @@ def test_defaults():
 
 
 def test_short_flags():
-    settings = parse_args(["-h", "http://example.com:9000", "-r", "3", "-i", "in.json", "-o", "out.jsonl"])
+    settings = parse_args(
+        ["-h", "http://example.com:9000", "-r", "3", "-i", "in.json", "-o", "out.jsonl"]
+    )
     assert str(settings.host) == "http://example.com:9000/"
     assert settings.repeat == 3
     assert settings.input == Path("in.json")
@@ -26,7 +28,9 @@ def test_short_flags():
 
 
 def test_long_flags():
-    settings = parse_args(["--host", "https://example.com", "--repeat", "2", "--json", BODY, "--output", "-"])
+    settings = parse_args(
+        ["--host", "https://example.com", "--repeat", "2", "--json", BODY, "--output", "-"]
+    )
     assert str(settings.host) == "https://example.com/"
     assert settings.repeat == 2
     assert settings.json_input == BODY
@@ -38,15 +42,15 @@ def test_short_json_flag():
 
 
 def test_help_is_long_form_only(capsys):
-    with pytest.raises(SystemExit) as exit:
+    with pytest.raises(SystemExit) as stopped:
         parse_args(["--help"])
-    assert exit.value.code == 0
+    assert stopped.value.code == 0
     assert "--host" in capsys.readouterr().out
 
     # -h is the host flag, so on its own it is missing its value
-    with pytest.raises(SystemExit) as exit:
+    with pytest.raises(SystemExit) as stopped:
         parse_args(["-h"])
-    assert exit.value.code == 2
+    assert stopped.value.code == 2
 
 
 def test_environment_is_ignored(monkeypatch):
@@ -74,6 +78,6 @@ def test_invalid_arguments_rejected(argv):
 
 
 def test_unknown_flag_rejected():
-    with pytest.raises(SystemExit) as exit:
+    with pytest.raises(SystemExit) as stopped:
         parse_args(["--bogus"])
-    assert exit.value.code == 2
+    assert stopped.value.code == 2

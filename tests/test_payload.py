@@ -64,9 +64,7 @@ def test_overlapping_payload_transforms_only_new_strings(client, calls):
     response = post(client, ["a", "x"], ["d", "b"])
     assert calls == ["x"]
     assert response.json()["id"] != first
-    assert client.get(f"/payload/{response.json()['id']}").json() == {
-        "output": "A, D, X, B"
-    }
+    assert client.get(f"/payload/{response.json()['id']}").json() == {"output": "A, D, X, B"}
 
 
 def test_get_does_not_call_transformer(client, calls):
