@@ -1,5 +1,7 @@
 import os
 
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, make_url, text
 
 # Tests truncate tables, so they run against their own database.
@@ -19,3 +21,15 @@ with admin.connect() as conn:
     if not exists:
         conn.execute(text(f'CREATE DATABASE "{url.database}"'))
 admin.dispose()
+
+
+@pytest.fixture
+def client():
+    # Imported here: app.db reads DATABASE_URL at import time, set above
+    from app import db
+    from app.main import app
+
+    with TestClient(app) as c:
+        with db.engine.begin() as conn:
+            conn.execute(text("TRUNCATE transform_cache, payloads"))
+        yield c

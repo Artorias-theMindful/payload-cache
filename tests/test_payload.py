@@ -4,20 +4,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import db, service, transformer
-from app.main import app
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as c:
-        with db.engine.begin() as conn:
-            conn.execute(text("TRUNCATE transform_cache, payloads"))
-        yield c
 
 
 @pytest.fixture
