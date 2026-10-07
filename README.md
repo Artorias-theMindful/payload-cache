@@ -28,7 +28,7 @@ The service keeps the number of transformer calls to a minimum:
 
 | Endpoint | Body | Response |
 |---|---|---|
-| `POST /payload` | `{"list_1": [...], "list_2": [...]}` | `{"id": "<uuid>"}` |
+| `POST /payload` | `{"list_1": [...], "list_2": [...]}` | `{"message": "Payload created", "id": "<uuid>"}` |
 | `GET /payload/{id}` | | `{"output": "..."}`, or 404 for an unknown id |
 
 Invalid input (lists of different lengths, strings that cannot be stored) is
@@ -86,14 +86,7 @@ pip install -e . -r requirements-dev.txt
 
 This puts the `cache-cli` command on the path.
 
-There are no schema migrations. If you have a database created by an earlier
-version of this code, drop the cache table once and restart the service, which
-recreates it. Stored payloads are not affected:
-
-```bash
-docker compose exec db psql -U postgres -d payloads -c "DROP TABLE transform_cache"
-docker compose restart app
-```
+There are no schema migrations: the tables are created on startup.
 
 ## Usage
 
@@ -103,7 +96,7 @@ docker compose restart app
 curl -X POST http://localhost:8000/payload \
   -H 'content-type: application/json' \
   -d '{"list_1": ["first string", "second string"], "list_2": ["other string", "another string"]}'
-# {"id":"<uuid>"}
+# {"message":"Payload created","id":"<uuid>"}
 
 curl http://localhost:8000/payload/<uuid>
 # {"output":"FIRST STRING, OTHER STRING, SECOND STRING, ANOTHER STRING"}
@@ -173,3 +166,48 @@ python -m pytest
 ```
 
 `TEST_DATABASE_URL` overrides the test database.
+
+Style is checked with ruff:
+
+```bash
+ruff check . && ruff format --check .
+```
+
+## Design decisions and shortcuts
+
+**The payload id is derived from the output** (`uuid5` of the output string).
+A repeated payload gets its old id without a lookup, and two concurrent
+requests for the same payload cannot create two rows. Different inputs that
+produce the same output share an id, which is correct: the payload is the same.
+
+**`POST /payload` answers 200, not 201**, because a payload generated before is
+returned rather than created again.
+
+**The cache table is keyed on a SHA-256 of the input**, since a PostgreSQL index
+entry cannot hold an arbitrarily long string. The input is stored next to it
+and compared on lookup, so a hash collision is a cache miss, never a wrong hit.
+
+**Concurrent requests are serialised with PostgreSQL advisory locks.** A request
+locks the strings it is about to transform, so a second request for the same
+string waits and then finds the result cached. The locks are striped (64
+stripes) so that a large request does not exhaust the lock table; the price is
+that unrelated strings sometimes wait on each other.
+
+Shortcuts, and what a production version would do instead:
+
+- A request keeps its lock and its database connection while the transformer
+  runs. That is fine for a function that returns immediately. With a slow
+  external service it would tie up the connection pool; the claim on a string
+  should then be recorded in its own short transaction and the call made
+  outside of it.
+- Strings are transformed one after another. A real service would be called in
+  batches or concurrently.
+- Tables are created with `create_all` on startup. A schema that changes needs
+  migrations (Alembic).
+- The queries use PostgreSQL features (`ON CONFLICT`, array parameters,
+  advisory locks), so SQLite is not supported, although the task allows it.
+- Strings containing NUL characters or lone surrogates are rejected with 422,
+  because PostgreSQL text cannot store them.
+- The CLI truncates the `--output` file before the first request, so a run that
+  fails leaves it empty or partial.
+- The credentials in `docker-compose.yml` are for local use only.
