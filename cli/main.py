@@ -20,7 +20,7 @@ def read_input(settings: Settings) -> PayloadInput:
     elif settings.input is None or settings.input == STDIO:
         text = sys.stdin.read()
     else:
-        text = settings.input.read_text()
+        text = settings.input.read_text(encoding="utf-8")
     return PayloadInput.model_validate_json(text)
 
 
@@ -42,9 +42,9 @@ def run(settings: Settings, http: httpx.Client):
     payload = read_input(settings)
     with open_output(settings.output) as out:
         for _ in range(settings.repeat):
-            id = client.create_payload(http, payload)
-            output = client.read_payload(http, id)
-            out.write(json.dumps({"id": id, "output": output}) + "\n")
+            payload_id = client.create_payload(http, payload)
+            output = client.read_payload(http, payload_id)
+            out.write(json.dumps({"id": payload_id, "output": output}) + "\n")
 
 
 def main(argv: list[str] | None = None, http: httpx.Client | None = None) -> int:
@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None, http: httpx.Client | None = None) -> int
     except ValidationError as error:
         print(f"cache-cli: error: {describe(error)}", file=sys.stderr)
         return EXIT_USAGE
-    except OSError as error:
+    except (OSError, UnicodeDecodeError) as error:
         print(f"cache-cli: error: {error}", file=sys.stderr)
         return EXIT_USAGE
     except (client.ServiceError, httpx.HTTPError) as error:

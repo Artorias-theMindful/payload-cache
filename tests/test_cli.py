@@ -1,6 +1,8 @@
 import io
 import json
 
+import httpx
+
 from cli.main import main
 
 SAMPLE = json.dumps(
@@ -86,3 +88,18 @@ def test_malformed_input_file_exits_2(client, tmp_path, capsys):
     source.write_text("{not json")
     assert main(["--input", str(source)], http=client) == 2
     assert "Invalid JSON" in capsys.readouterr().err
+
+
+def test_non_utf8_input_file_exits_2(client, tmp_path, capsys):
+    source = tmp_path / "in.json"
+    source.write_bytes(b"\xff\xfe")
+    assert main(["--input", str(source)], http=client) == 2
+    assert capsys.readouterr().err.startswith("cache-cli: error:")
+
+
+def test_unexpected_response_body_exits_1(capsys):
+    # Some other server at --host: answers with success, but not with our JSON
+    other = httpx.MockTransport(lambda request: httpx.Response(200, text="<html></html>"))
+    with httpx.Client(transport=other, base_url="http://other") as http:
+        assert main(["--json", SAMPLE], http=http) == 1
+    assert "unexpected body" in capsys.readouterr().err
